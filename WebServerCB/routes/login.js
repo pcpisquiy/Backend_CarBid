@@ -1,42 +1,28 @@
-var express = require('express');
-var router = express.Router();
-import bcrypt from 'bcrypt';
-import  Usuario  from '../db/sequelize.js';
-import { authRequired,authMiddleware,signToken } from '../middleware/auth.js';
-app.post('/login', async (req, res) => {
+// routes/login.js
+const express = require('express');
+const bcrypt = require('bcrypt');
+const { signToken } = require('../middleware/auth');
+const User = require('../models/User'); // ajusta el path si cambia
+
+const router = express.Router();
+
+// POST /api/login
+router.post('/login', async (req, res) => {
   try {
-    const login = (req.body.login || '').toString().trim();
-    const password = (req.body.password || '').toString();nom
+    const { email, password, usuario } = req.body; // según lo que envíes
+    const where = email ? { Correo: email } : { Usuario: usuario };
+    const u = await User.findOne({ where });
+    if (!u) return res.status(401).json({ error: 'Credenciales inválidas' });
 
-    if (!login || !password) {
-      return res.status(400).json({ error: 'login y password son obligatorios' });
-    }
+    const ok = await bcrypt.compare(password, u.Contrasena);
+    if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
 
-    // Como tu collation es utf8mb4_unicode_ci, la comparación ya es case-insensitive
-    const u = await Usuario.findOne({
-      where: { [Op.or]: [{ Usuario: login }, { Correo: login }] }
-    });
-
-    if (!u || !u.Activa) {
-      return res.status(401).json({ ok: false, message: 'Credenciales inválidas' });
-    }
-
-    // Si Contrasena almacena hash bcrypt:
-    let ok = false;
-    if (u.Contrasena && u.Contrasena.startsWith('$2')) {
-      ok = await bcrypt.compare(password, u.Contrasena);
-    } else {
-      // Fallback opcional si aún tienes contraseñas en texto plano (no recomendado):
-      ok = (password === u.Contrasena);
-    }
-
-    if (!ok) return res.status(401).json({ ok: false, message: 'Credenciales inválidas' });
-
-    const token = signToken({ Id_Usuario: u.Id_Usuario, Usuario: u.Usuario, Correo: u.Correo });
-    const { Contrasena, ...safe } = u.toJSON();
-    return res.json({ ok: true, user: safe, token });
+    const token = signToken({ id: u.Id_Usuario, email: u.Correo, name: u.Usuario });
+    res.json({ token, user: { id: u.Id_Usuario, email: u.Correo, name: u.Usuario } });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'No se pudo iniciar sesión' });
   }
 });
+
 module.exports = router;

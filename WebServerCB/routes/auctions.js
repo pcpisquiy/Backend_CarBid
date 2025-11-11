@@ -1,77 +1,73 @@
 // routes/auctions.js
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { requireAuth } = require('../middleware/auth');
+const { authRequired } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+
 const Auction = require('../models/Auction');
-const Photo = require('../models/Photo');
+const Photo   = require('../models/Photo');
 
 const router = express.Router();
 
-const createValidators = [
-  body('title').trim().notEmpty(),
-  body('brand').trim().notEmpty(),
-  body('model').trim().notEmpty(),
-  body('year').isInt({ min: 1980, max: new Date().getFullYear() + 1 }),
-  body('km').optional().isInt({ min: 0 }),
-  body('transmission').isIn(['Automática','Manual','CVT']),
-  body('base_price').isInt({ min: 100 }),
-  body('start_at').isISO8601(),
-  body('end_at').isISO8601()
-];
+// debug line — useful while fixing the error you saw
+console.log('MW check:', { authRequired: typeof authRequired, upload: typeof upload });
 
 router.post(
   '/',
-  requireAuth,
-  upload.array('images', 8),
-  createValidators,
+  authRequired,                  // MUST be a function
+  upload.array('images', 8),     // MUST be a function (.array) from multer
+  [
+    body('title').trim().notEmpty(),
+    body('brand').trim().notEmpty(),
+    body('model').trim().notEmpty(),
+    body('year').isInt({ min: 1900 }),
+    body('km').optional().isInt({ min: 0 }),
+    body('transmission').trim().notEmpty(),
+    body('base_price').isFloat({ min: 0 }),
+    body('start_at').isISO8601(),
+    body('end_at').isISO8601(),
+  ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty())
       return res.status(400).json({ errors: errors.array() });
 
-    const {
-      title, brand, model, year, km = 0, transmission,
-      base_price, start_at, end_at, description = ''
-    } = req.body;
-
-    const start = new Date(start_at);
-    const end = new Date(end_at);
-    if (!(start < end)) return res.status(400).json({ error: 'Rango de fechas inválido' });
-
     try {
-      const auction = await Auction.create({
-        seller_id: req.user.id,
-        title, brand, model,
-        year: Number(year),
-        km: Number(km || 0),
-        transmission,
-        base_price: Number(base_price),
-        start_at: start,
-        end_at: end,
-        description,
-        status: Date.now() >= start.getTime() ? 'active' : 'scheduled',
-        highest_bid: 0
+      const {
+        title, brand, model, year, km = 0, transmission,
+        base_price, start_at, end_at, description = ''
+      } = req.body;
+
+      // Mapea a tu esquema real
+      const a = await Auction.create({
+        Titulo: title,
+        Id_Modelo: Number(model),                // OJO: si envías model_id, ajústalo
+        Kilometraje: Number(km || 0),
+        Id_Transmision: Number(transmission),    // si envías id, no texto
+        Precio_Inicial: Number(base_price),
+        Fecha_Inicio: new Date(start_at),
+        Fecha_Fin: new Date(end_at),
+        Id_Estado: 1,
+        Usuario_Grabacion: req.user.id
       });
 
-      // guardar fotos
-      const baseUrl = process.env.BASE_URL?.replace(/\/$/, '') || '';
+      const baseUrl = (process.env.BASE_URL || '').replace(/\/$/, '');
       const files = req.files || [];
+
       await Promise.all(
         files.map((f, i) =>
           Photo.create({
-            auction_id: auction.id,
-            url: `${baseUrl}/uploads/${f.filename}`,
-            order: i
+            Id_Publicacion: a.Id,
+            Url: `${baseUrl}/uploads/${f.filename}`,
+            Orden: i
           })
         )
       );
 
-      const created = await Auction.findByPk(auction.id, { include: { model: Photo } });
-      res.status(201).json(created);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'No se pudo crear la subasta' });
+      res.status(201).json({ id: a.Id });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'No se pudo crear la publicación' });
     }
   }
 );
