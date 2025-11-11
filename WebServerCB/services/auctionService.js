@@ -94,7 +94,7 @@ async function searchAuctions(params) {
 
   const includes = [
     incModel,
-    { model: Transmission, as: 'Trans', required: false, attributes: ['Id','Descripcion'] },
+    { model: Transmission, as: 'Transmision', required: false, attributes: ['Id','Descripcion'] },
     { model: Photo, as: 'Fotos', required: false, attributes: ['Url','Orden'] },
     // No queremos las filas de pujas, solo usar MAX en agregados
     { model: Bid, as: 'Pujas', required: false, attributes: [] }
@@ -155,7 +155,7 @@ async function searchAuctions(params) {
       modelo: r.Modelo?.Descripcion || '',
       anio: r.Modelo?.Anio || null,
       km: r.Kilometraje || 0,
-      transmision: r.Trans?.Descripcion || '',
+      transmision: r.Transmision?.Descripcion || '',
       startAt: new Date(r.Fecha_Inicio).getTime(),
       endAt: new Date(r.Fecha_Fin || r.Fecha_Inicio).getTime(),
       estado: getEstado(r),

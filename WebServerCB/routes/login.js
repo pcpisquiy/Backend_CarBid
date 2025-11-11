@@ -1,26 +1,38 @@
 // routes/login.js
 const express = require('express');
-const bcrypt = require('bcrypt');
 const { signToken } = require('../middleware/auth');
-const User = require('../models/User'); // ajusta el path si cambia
+const User = require('../models/User');
 
 const router = express.Router();
 
-// POST /api/login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password, usuario } = req.body; // según lo que envíes
+    const { usuario, email, password } = req.body || {};
+    console.log(req.body);
+    if (!password || (!usuario && !email)) {
+      return res.status(400).json({ error: 'usuario/email y password son requeridos' });
+    }
     const where = email ? { Correo: email } : { Usuario: usuario };
     const u = await User.findOne({ where });
     if (!u) return res.status(401).json({ error: 'Credenciales inválidas' });
 
-    const ok = await bcrypt.compare(password, u.Contrasena);
+    let ok = false;
+    try {
+      const passDb = String(u.Contrasena || '');
+      if (passDb.startsWith('$2')) {
+        const bcrypt = require('bcrypt');
+        ok = await bcrypt.compare(password, passDb);
+      } else {
+        ok = password === passDb;
+      }
+    } catch { ok = false; }
+
     if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
 
     const token = signToken({ id: u.Id_Usuario, email: u.Correo, name: u.Usuario });
     res.json({ token, user: { id: u.Id_Usuario, email: u.Correo, name: u.Usuario } });
   } catch (e) {
-    console.error(e);
+    console.error('Login error:', e);
     res.status(500).json({ error: 'No se pudo iniciar sesión' });
   }
 });
