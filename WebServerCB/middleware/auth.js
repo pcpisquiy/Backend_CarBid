@@ -1,6 +1,6 @@
 // middleware/auth.js
 const jwt = require('jsonwebtoken');
-const SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+const SECRET = process.env.JWT_SECRET;
 
 function signToken(payload) {
   return jwt.sign(payload, SECRET, { expiresIn: '7d' });

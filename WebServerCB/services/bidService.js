@@ -18,7 +18,7 @@ async function getAuctionDetail(auctionId) {
     include: [
       { model: Photo, as: 'Fotos', attributes: ['Url','Orden'] },
       { model: ModelCar, as: 'Modelo', attributes: ['Descripcion','Anio'], include: [{ model: Brand, as: 'Marca', attributes: ['Descripcion'] }] },
-      { model: Trans, as: 'Trans', attributes: ['Descripcion'] }
+      { model: Trans, as: 'Transmision', attributes: ['Descripcion'] }
     ],
   });
   if (!a) return null;
